@@ -26,6 +26,7 @@ from playhouse.sqliteq import SqliteQueueDatabase
 from pandevice.base import PanDevice
 
 # Variables to take from os environment
+# TODO: Check if required env are defined and gracefully error
 PA_HOSTNAME = os.environ['PA_HOSTNAME']
 PA_USERNAME = os.environ['PA_USERNAME']
 PA_PASSWORD = os.environ['PA_PASSWORD']
@@ -35,9 +36,11 @@ LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
 DB = SqliteQueueDatabase(os.environ.get('DB_PATH','device.db'))
 
 # import our loggers and their associated regex from logger_definitions.py
+# TODO: Check if logger_definitions are defined and gracefully error/quit if not
 from logger_definitions import LOGGER_DEFINITIONS
 
 # Create a connection to our palo alto firewall
+# TODO: Check connection was successful and gracefully error/quit if not
 PAFW = PanDevice.create_from_device(PA_HOSTNAME, PA_USERNAME, PA_PASSWORD)
 
 # PeeWee Object Definition
@@ -77,11 +80,14 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
 
     # parse an incoming message
     def parse_msg(self, msg):
+        # create a datetime object
+        dt = datetime.now()
+
         # run a re.search() using the regex defined for our client
         params = LOGGER_DEFINITIONS[self.client_address[0]].search(msg)
 
         if params is None:
-            # do nothing if no pattern matches
+            # do nothing if no pattern matches, unsupported log line
             return False
         elif "mac" in params.groupdict():
             # get our device object
@@ -90,22 +96,27 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
             # set ip if it exists in our params
             if "ip" in params.groupdict():
                 device.ip = params.group('ip')
-                print( "%s : supplied mac/ip map [%s <-> %s]" % (self.client_address[0], device.mac, device.ip))
+                print( "%s: MAP_UPDATED: logger %s supplied mac %s --> ip %s" % (dt, self.client_address[0], device.mac, device.ip) )
 
             # set user if it exists in our params
             if "user" in params.groupdict():
                 device.user = self.qualify_user( params.group('user') )
-                print( "supplied mac/user map [%s <-> %s]" % (self.client_address[0], device.mac, device.user))
+                print( "%s: MAP_UPDATED: logger %s supplied mac %s --> user %s" % (dt, self.client_address[0], device.mac, device.user) )
 
             # update timestamp of entry and save
-            device.timestamp = datetime.now()
+            # TODO: Check if db update was successful or error with reason
+            device.timestamp = dt
             device.save()
 
             # now if we have both a user and ip defined update the firewall
             if device.user and device.ip:
+                # TODO: Check if api update was successful or error with reason
                 PAFW.userid.login(device.user, device.ip)
+                print( "%s: PA_UPDATED: host %s updated with map ip %s --> user %s" % (dt, PA_HOSTNAME, device.ip, device.user))
+            # TODO: consider unfinished map logging message
         else:
-            # if nothing matches we have an unsupported pattern
+            # pattern matches but no 'mac' group defined
+            print ("%s: MAP_ERROR: logger %s pattern '%s' does not define a 'mac' group" % (dt, self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()) )
             return False
 
     def handle(self):
