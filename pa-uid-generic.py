@@ -34,12 +34,8 @@ LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
 LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
 DB = SqliteQueueDatabase(os.environ.get('DB_PATH','device.db'))
 
-# define our loggers and their associated regex
-LOGGER_DEFINITIONS = {
-    '10.0.0.1': re.compile('DHCP lease started ip (?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) --> mac (?P<mac>(?:[0-9a-fA-F][0-9a-fA-F]:){5}(?:[0-9a-fA-F][0-9a-fA-F]))'),
-    '10.0.0.2': re.compile('Login OK: \[(?P<user>.+?)\] \(from client \S+ port \d+ cli (?P<mac>(?:[0-9a-fA-F][0-9a-fA-F]-){5}(?:[0-9a-fA-F][0-9a-fA-F])) via TLS tunnel\)'),
-    '10.0.0.3': re.compile('Login OK: \[(?P<user>.+?)\] \(from client \S+ port \d+ cli (?P<mac>(?:[0-9a-fA-F][0-9a-fA-F]-){5}(?:[0-9a-fA-F][0-9a-fA-F])) via TLS tunnel\)')
-}
+# import our loggers and their associated regex from logger_definitions.py
+from logger_definitions import LOGGER_DEFINITIONS
 
 # Create a connection to our palo alto firewall
 PAFW = PanDevice.create_from_device(PA_HOSTNAME, PA_USERNAME, PA_PASSWORD)
