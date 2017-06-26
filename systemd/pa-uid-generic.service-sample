@@ -1,0 +1,13 @@
+[Unit]
+Description=Generic Palo Alto User-ID Agent
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/app/pa-uid-generic/env
+WorkingDirectory=/app/pa-uid-generic/
+ExecStart=/app/pa-uid-generic/pa-uid-generic.py
+
+[Install]
+WantedBy=multi-user.target
