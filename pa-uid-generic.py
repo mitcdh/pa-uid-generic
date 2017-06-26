@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """
 This is a quick python script allowing regular expressions to be defined to
 process generic UDP messages (e.g. UDP syslog) for usernames, ip, and mac
@@ -14,6 +14,7 @@ Requires:
     peewee
     pandevice
 """
+from __future__ import print_function
 import logging
 import SocketServer
 import re
@@ -91,17 +92,21 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
             device = self.get_create_device( self.normalise_mac( params.group('mac') ))
 
             # set ip if it exists in our params
-            if "ip" in params.groupdict(): device.ip = params.group('ip')
+            if "ip" in params.groupdict():
+                device.ip = params.group('ip')
+                print( "%s : supplied mac/ip map [%s <-> %s]" % (self.client_address[0], device.mac, device.ip))
 
             # set user if it exists in our params
-            if "user" in params.groupdict(): device.user = self.qualify_user( params.group('user') )
+            if "user" in params.groupdict():
+                device.user = self.qualify_user( params.group('user') )
+                print( "supplied mac/user map [%s <-> %s]" % (self.client_address[0], device.mac, device.user))
 
             # update timestamp of entry and save
             device.timestamp = datetime.now()
             device.save()
 
             # now if we have both a user and ip defined update the firewall
-            if device.user is not '' and device.ip is not '':
+            if device.user and device.ip:
                 PAFW.userid.login(device.user, device.ip)
         else:
             # if nothing matches we have an unsupported pattern
@@ -110,7 +115,7 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = bytes.decode(self.request[0].strip())
         socket = self.request[1]
-        print( "%s : " % self.client_address[0], str(data))
+        #print( "%s : " % self.client_address[0], str(data))
 
         # parse incoming message
         self.parse_msg(str(data))
