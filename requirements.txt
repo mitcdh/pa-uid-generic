@@ -1,0 +1,3 @@
+pan-python==0.12.0
+pandevice==0.4.1
+peewee==2.10.1

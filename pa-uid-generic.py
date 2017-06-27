@@ -14,7 +14,6 @@ Requires:
     peewee
     pandevice
 """
-from __future__ import print_function
 import logging
 import SocketServer
 import re
@@ -33,6 +32,7 @@ PA_PASSWORD = os.environ['PA_PASSWORD']
 LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
 LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
 LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=os.environ.get("LOG_LEVEL", "INFO"))
 DB = SqliteQueueDatabase(os.environ.get('DB_PATH','device.db'))
 
 # import our loggers and their associated regex from logger_definitions.py
@@ -56,7 +56,11 @@ class Device(Model):
 # Customised so we can ignore from hosts we haven't defined a pattern for
 class PA_UID_Server(SocketServer.ThreadingUDPServer):
     def verify_request(self, request, client_address):
-        return client_address[0] in LOGGER_DEFINITIONS
+        if client_address[0] in LOGGER_DEFINITIONS:
+            return True
+        else:
+            logging.debug("UNDEFINED_LOGGER: received message from %s with no associated logger definition" % (client_address[0]) )
+            return False
 
 
 class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
@@ -80,8 +84,8 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
 
     # parse an incoming message
     def parse_msg(self, msg):
-        # create a datetime object
-        dt = datetime.now()
+        # print our full message for debug logs
+        logging.debug("LOG_RECEIVED: logger %s supplied log '%s'" % (self.client_address[0], msg) )
 
         # run a re.search() using the regex defined for our client
         params = LOGGER_DEFINITIONS[self.client_address[0]].search(msg)
@@ -93,15 +97,18 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
             # get our device object
             device = self.get_create_device( self.normalise_mac( params.group('mac') ))
 
+            # create a datetime object
+            dt = datetime.now()
+
             # set ip if it exists in our params
             if "ip" in params.groupdict():
                 device.ip = params.group('ip')
-                print( "%s: MAP_UPDATED: logger %s supplied mac %s --> ip %s" % (dt, self.client_address[0], device.mac, device.ip) )
+                logging.info( "MAP_UPDATED: logger %s supplied mac %s --> ip %s at timestamp (%s)" % (self.client_address[0], device.mac, device.ip, dt) )
 
             # set user if it exists in our params
             if "user" in params.groupdict():
                 device.user = self.qualify_user( params.group('user') )
-                print( "%s: MAP_UPDATED: logger %s supplied mac %s --> user %s" % (dt, self.client_address[0], device.mac, device.user) )
+                logging.info( "MAP_UPDATED: logger %s supplied mac %s --> user %s at timestamp (%s)" % (self.client_address[0], device.mac, device.user, dt) )
 
             # update timestamp of entry and save
             # TODO: Check if db update was successful or error with reason
@@ -112,17 +119,16 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
             if device.user and device.ip:
                 # TODO: Check if api update was successful or error with reason
                 PAFW.userid.login(device.user, device.ip)
-                print( "%s: PA_UPDATED: host %s updated with map ip %s --> user %s" % (dt, PA_HOSTNAME, device.ip, device.user))
+                logging.info( "PA_UPDATED: host %s updated with map ip %s --> user %s from timestamp (%s)" % (PA_HOSTNAME, device.ip, device.user, dt))
             # TODO: consider unfinished map logging message
         else:
             # pattern matches but no 'mac' group defined
-            print ("%s: MAP_ERROR: logger %s pattern '%s' does not define a 'mac' group" % (dt, self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()) )
+            logging.warning( "MAP_ERROR: logger %s pattern '%s' does not define a 'mac' group" % (self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()) )
             return False
 
     def handle(self):
         data = bytes.decode(self.request[0].strip())
         socket = self.request[1]
-        #print( "%s : " % self.client_address[0], str(data))
 
         # parse incoming message
         self.parse_msg(str(data))
