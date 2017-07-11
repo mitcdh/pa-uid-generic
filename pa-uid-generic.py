@@ -78,7 +78,7 @@ class PA_UID_UDPHandler(SocketServer.BaseRequestHandler):
     # qualify user with local_domain if there is no '@' symbol
     def qualify_user(self, user):
         if '@' not in user:
-            return user + LOCAL_DOMAIN
+            return user + '@' + LOCAL_DOMAIN
         else:
             return user
 
