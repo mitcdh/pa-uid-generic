@@ -48,8 +48,13 @@ An example unit file has been included at [systemd/pa-uid-generic.service-sample
 #### Docker
 ````
 # requires environment variables to be defined in a file named 'env' and 'logger_definitions.py' to be defined
-docker build -t pa-uid-generic .
-docker run -d --env-file env -p 1514:1514/udp -v logger_definitions.py:/app/pa-uid-generic/logger_definitions.py pa-uid-generic
+docker run -d \
+--env-file env \
+-p 1514:1514/udp \
+-v /etc/localtime:/etc/localtime:ro \
+-v logger_definitions.py:/app/pa-uid-generic/logger_definitions.py:ro \
+-v device.db:/app/pa-uid-generic/device.db \
+mitcdh/pa-uid-generic
 ````
 
 ### Todo
