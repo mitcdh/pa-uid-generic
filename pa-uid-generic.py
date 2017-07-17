@@ -97,16 +97,16 @@ class PA_UID_Update_Worker(Thread):
                 try:
                     self.pafw.userid.login(user, ip)
                 except PanURLError as e:
-                    logging.error( "PAN: host %s temporarily failed update with exception (%s) pausing worker for %ss queue size %s" % (PA_HOSTNAME, ip, user, e, self.timeout, self.q.qsize()))
+                    logging.error( "PAN: host %s temporarily failed update with exception (%s) pausing worker for %ss [Queue Size %s]" % (PA_HOSTNAME, ip, user, e, self.timeout, self.q.qsize()))
                     self.q.put((user, ip))
                     self.q.task_done()
                     time.sleep(self.current_timeout)
                     self.current_timeout = self.current_timeout * 2
                 except Exception as e:
-                    logging.error( "PAN: host %s permanently failed update for map ip %s --> user %s (%s) removed from queue" % (PA_HOSTNAME, ip, user, e))
+                    logging.error( "PAN: host %s permanently failed update for map ip %s --> user %s (%s) removed from queue [Queue Size %s]" % (PA_HOSTNAME, ip, user, e, self.q.qsize()))
                     self.q.task_done()
                 else:
-                    logging.info( "PAN: host %s updated with map ip %s --> user %s" % (PA_HOSTNAME, ip, user))
+                    logging.info( "PAN: host %s updated with map ip %s --> user %s [Queue Size %s]" % (PA_HOSTNAME, ip, user, self.q.qsize()))
                     self.q.task_done()
                     self.current_timeout = self.timeout
             except Queue.Empty:
