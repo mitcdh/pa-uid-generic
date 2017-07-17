@@ -162,12 +162,12 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             # set ip if it exists in our params
             if "ip" in params.groupdict():
                 client.ip = params.group('ip')
-                logging.info( "MAP: logger %s supplied mac %s --> ip %s at timestamp (%s)" % (self.client_address[0], client.mac, client.ip, dt) )
+                logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], client.mac, client.ip) )
 
             # set user if it exists in our params
             if "user" in params.groupdict():
                 client.user = self.qualify_user( params.group('user') )
-                logging.info( "MAP: logger %s supplied mac %s --> user %s at timestamp (%s)" % (self.client_address[0], client.mac, client.user, dt) )
+                logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], client.mac, client.user) )
 
             # update timestamp of entry and save
             # TODO: Check if db update was successful or error with reason
