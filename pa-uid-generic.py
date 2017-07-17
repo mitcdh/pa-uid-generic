@@ -21,7 +21,7 @@ import os
 import time
 import Queue
 
-from datetime import datetime
+from datetime import (datetime, timedelta)
 from threading import Thread
 
 from peewee import *
@@ -46,7 +46,8 @@ LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
 LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
 LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
 DB_PATH = os.environ.get('DB_PATH','device.db')
-TIMEOUT = os.environ.get('TIMEOUT','5')
+WORKER_TIMEOUT = os.environ.get('WORKER_TIMEOUT','5')
+UPDATE_MIN = int(os.environ.get('UID_UPDATE','5'))
 
 # palo alto connection must be defined
 try:
@@ -141,6 +142,28 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
         else:
             return user
 
+    # return a string "empty"
+    def empty_string(self, str):
+        if not str:
+            return "empty"
+        else:
+            return str
+
+    # boolean test if a user/ip map is complete
+    def complete_device(self, client):
+        if client.user and client.ip:
+            return True
+        else:
+            return False
+
+    # convert td to minutes and handle division by 0
+    def td_minutes(self, td):
+        seconds = td.total_seconds()
+        if seconds != 0:
+            return seconds / 60
+        else:
+            return 0
+
     # parse an incoming message
     def parse_msg(self, msg):
         # print our full message for debug logs
@@ -154,30 +177,50 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             return False
         elif "mac" in params.groupdict():
             # get our device object
-            client = self.get_create_device( self.normalise_mac( params.group('mac') ))
+            msg_mac = self.normalise_mac( params.group('mac') )
+            client = self.get_create_device( msg_mac )
+            updated = False
 
             # create a datetime object
             dt = datetime.now()
 
-            # set ip if it exists in our params
             if "ip" in params.groupdict():
-                client.ip = params.group('ip')
-                logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], client.mac, client.ip) )
+                # set ip if it exists in our params
+                msg_ip = params.group('ip')
+                logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], msg_mac, msg_ip) )
+                if msg_ip != client.ip:
+                    logging.info( "DB: updated mac %s --> ip %s current ip %s" % (msg_mac, msg_ip, self.empty_string( client.ip )) )
+                    client.ip = msg_ip
+                    updated = True
+            elif "user" in params.groupdict():
+                # set user if it exists in our params
+                msg_user = self.qualify_user( params.group('user') )
+                logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], msg_mac, msg_user) )
+                if msg_user != client.user:
+                    logging.info( "DB: updated mac %s --> user %s current user %s" % (msg_mac, msg_user, self.empty_string( client.user )) )
+                    client.user = msg_user
+                    updated = True
+            else:
+                # warn if no user/ip found
+                logging.warning( "MAP: logger %s supplied mac %s but no user/ip match found" % (self.client_address[0], msg_mac) )
 
-            # set user if it exists in our params
-            if "user" in params.groupdict():
-                client.user = self.qualify_user( params.group('user') )
-                logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], client.mac, client.user) )
-
-            # update timestamp of entry and save
-            # TODO: Check if db update was successful or error with reason
-            client.timestamp = dt
-            client.save()
+            # get a timedelta
+            td = dt - client.timestamp
 
             # now if we have both a user and ip defined update the firewall
-            if client.user and client.ip:
+            if self.complete_device(client) and (updated or (self.td_minutes(td) > UPDATE_MIN)):
                 UIDQ.put((client.user, client.ip))
-            # TODO: consider unfinished map logging message
+
+            # update timestamp of entry
+            client.timestamp = dt
+
+            # save our new client
+            try:
+                client.save()
+            except:
+                logging.error( "DB: exception encountered while updating db %s entry for mac %s" % (DB_PATH, msg_mac) )
+                raise
+
         else:
             # pattern matches but no 'mac' group defined
             logging.warning( "MAP: logger %s pattern '%s' does not define a 'mac' group" % (self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()) )
@@ -207,7 +250,7 @@ if __name__ == "__main__":
 
         # start our uid updater worker
         try:
-            uid_worker = PA_UID_Update_Worker(PAFW, UIDQ, TIMEOUT)
+            uid_worker = PA_UID_Update_Worker(PAFW, UIDQ, WORKER_TIMEOUT)
             uid_worker.setDaemon(True)
             uid_worker.start()
         except Exception as e:
@@ -227,7 +270,7 @@ if __name__ == "__main__":
             DB.stop()
             raise
     except (KeyboardInterrupt, SystemExit):
-        logging.info( "SYSTEM: encountered interrupt/system exit - shutting down")
+        logging.info( "SYSTEM: encountered interrupt/system exit shutting down")
         server.shutdown()
         UIDQ.join()
         DB.stop()
