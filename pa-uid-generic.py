@@ -27,6 +27,7 @@ from threading import Thread
 from peewee import *
 from playhouse.sqliteq import SqliteQueueDatabase
 from pandevice.base import PanDevice
+from pandevice.errors import PanDeviceError
 
 # Variables to take from os environment
 LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
@@ -96,17 +97,17 @@ class PA_UID_Update_Worker(Thread):
                 user, ip = self.q.get(block=True, timeout=15)
                 try:
                     self.pafw.userid.login(user, ip)
-                except PanURLError as e:
-                    logging.error( "PAN: host %s temporarily failed update with exception (%s) pausing worker for %ss [Queue Size %s]" % (PA_HOSTNAME, ip, user, e, self.timeout, self.q.qsize()))
+                except PanDeviceError as e:
+                    logging.error( "UID: [Queue Size: %s] host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, ip, user, e, self.timeout))
                     self.q.put((user, ip))
                     self.q.task_done()
                     time.sleep(self.current_timeout)
                     self.current_timeout = self.current_timeout * 2
                 except Exception as e:
-                    logging.error( "PAN: host %s permanently failed update for map ip %s --> user %s (%s) removed from queue [Queue Size %s]" % (PA_HOSTNAME, ip, user, e, self.q.qsize()))
+                    logging.error( "UID: [Queue Size: %s] host %s permanently failed update for map ip %s --> user %s (%s) removed from queue" % (self.q.qsize(), PA_HOSTNAME, ip, user, e))
                     self.q.task_done()
                 else:
-                    logging.info( "PAN: host %s updated with map ip %s --> user %s [Queue Size %s]" % (PA_HOSTNAME, ip, user, self.q.qsize()))
+                    logging.info( "UID: [Queue Size: %s] host %s updated with map ip %s --> user %s" % (self.q.qsize(), PA_HOSTNAME, ip, user))
                     self.q.task_done()
                     self.current_timeout = self.timeout
             except Queue.Empty:
