@@ -29,15 +29,24 @@ from playhouse.sqliteq import SqliteQueueDatabase
 from pandevice.base import PanDevice
 from pandevice.errors import PanDeviceError
 
+# logging configuration
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=os.environ.get("LOG_LEVEL", "INFO"))
+
+# import our loggers and their associated regex from logger_definitions.py
+try:
+    from logger_definitions import LOGGER_DEFINITIONS
+except ImportError as e:
+    logging.error( "CONFIG: failed to import LOGGER_DEFINITIONS from 'logger_definitions.py'")
+    raise
+else:
+    logging.debug( "CONFIG: imported LOGGER_DEFINITIONS from 'logger_definitions.py'")
+
 # Variables to take from os environment
 LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
 LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
 LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
 DB_PATH = os.environ.get('DB_PATH','device.db')
 TIMEOUT = os.environ.get('TIMEOUT','5')
-
-# logging configuration
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=os.environ.get("LOG_LEVEL", "INFO"))
 
 # palo alto connection must be defined
 try:
@@ -50,18 +59,8 @@ except KeyError as e:
 else:
     logging.debug( "CONFIG: All PA_ environment variables defined")
 
-
-# import our loggers and their associated regex from logger_definitions.py
-try:
-    from logger_definitions import LOGGER_DEFINITIONS
-except ImportError as e:
-    logging.error( "CONFIG: failed to import LOGGER_DEFINITIONS from 'logger_definitions.py'")
-    raise
-else:
-    logging.debug( "CONFIG: imported LOGGER_DEFINITIONS from 'logger_definitions.py'")
-
 # create our database in meta
-# (can't defer as OperationalError exceptions are raised in thread)
+# Would defer but OperationalError exceptions are raised in thread
 try:
     DB = SqliteQueueDatabase(DB_PATH)
 except:
@@ -98,7 +97,7 @@ class PA_UID_Update_Worker(Thread):
                 try:
                     self.pafw.userid.login(user, ip)
                 except PanDeviceError as e:
-                    logging.error( "UID: [Queue Size: %s] host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, ip, user, e, self.timeout))
+                    logging.error( "UID: [Queue Size: %s] host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, e, self.timeout))
                     self.q.put((user, ip))
                     self.q.task_done()
                     time.sleep(self.current_timeout)
