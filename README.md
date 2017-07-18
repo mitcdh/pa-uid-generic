@@ -6,19 +6,23 @@ The script assumes mac addresses will be included in all messages and when a ful
 
 ### Requirements
 A requirements.txt has been provided from a pip freeze of a working copy.
+
 * python2
 * peewee
 * pandevice
 
+
 ### Environment Variables
-* `PA_HOSTNAME`: hostname or ip of the palo alto firewall
-* `PA_USERNAME`: username for account with at a minimum "Operational Requests" and "User-ID Agent" permitted on the Palo Alto firewall.
-* `PA_PASSWORD`: password for account
+* `PA_HOSTNAME`: hostname or ip of the palo alto firewall (required)
+* `PA_USERNAME`: username for account with at a minimum "Operational Requests" and "User-ID Agent" permitted on the Palo Alto firewall (required)
+* `PA_PASSWORD`: password for account (required)
 * `LISTEN_HOST`: ip to listen for log traffic on
 * `LISTEN_PORT`: port to listen for log traffic on (currently UDP only)
 * `LOCAL_DOMAIN`: domain to append to user when not fully qualified
 * `DB_PATH`: path for sqlite database
 * `LOG_LEVEL`: log level passed into pythons logging config
+* `WORKER_TIMEOUT`: base timeout if api requests to pa fail temporarily
+* `UPDATE_MIN`: timeout between updates of PA
 
 ### Usage
 #### Native
@@ -57,8 +61,8 @@ docker run -d \
 mitcdh/pa-uid-generic
 ````
 
-### Todo
-* Graceful failure for other modules and incoming environment variables, currently relying on uncaught exceptions
+### Logical Map
+![Logical map of pa-uid-generic.py](docs/logical_map.png "Logical map of pa-uid-generic.py")
 
 ### Credits
 * [marcelom/pysyslog.py](https://gist.github.com/marcelom/4218010) for an implementation of syslog in python.
