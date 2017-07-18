@@ -98,16 +98,16 @@ class PA_UID_Update_Worker(Thread):
                 try:
                     self.pafw.userid.login(user, ip)
                 except PanDeviceError as e:
-                    logging.error( "UID: [Queue Size: %s] host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, e, self.timeout))
+                    logging.error( "UID: [Queue Size: %s] pan host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, e, self.timeout))
                     self.q.put((user, ip))
                     self.q.task_done()
                     time.sleep(self.current_timeout)
                     self.current_timeout = self.current_timeout * 2
                 except Exception as e:
-                    logging.error( "UID: [Queue Size: %s] host %s permanently failed update for map ip %s --> user %s (%s) removed from queue" % (self.q.qsize(), PA_HOSTNAME, ip, user, e))
+                    logging.error( "UID: [Queue Size: %s] pan host %s permanently failed update for map ip %s --> user %s (%s) removed from queue" % (self.q.qsize(), PA_HOSTNAME, ip, user, e))
                     self.q.task_done()
                 else:
-                    logging.info( "UID: [Queue Size: %s] host %s updated with map ip %s --> user %s" % (self.q.qsize(), PA_HOSTNAME, ip, user))
+                    logging.info( "UID: [Queue Size: %s] pan host %s updated with map ip %s --> user %s" % (self.q.qsize(), PA_HOSTNAME, ip, user))
                     self.q.task_done()
                     self.current_timeout = self.timeout
             except Queue.Empty:
@@ -189,7 +189,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
                 msg_ip = params.group('ip')
                 logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], msg_mac, msg_ip) )
                 if msg_ip != client.ip:
-                    logging.info( "DB: updated mac %s --> ip %s current ip %s" % (msg_mac, msg_ip, self.empty_string( client.ip )) )
+                    logging.info( "DB: updating mac %s --> ip %s with new ip %s" % (msg_mac, self.empty_string( client.ip ), msg_ip) )
                     client.ip = msg_ip
                     updated = True
             elif "user" in params.groupdict():
@@ -197,7 +197,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
                 msg_user = self.qualify_user( params.group('user') )
                 logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], msg_mac, msg_user) )
                 if msg_user != client.user:
-                    logging.info( "DB: updated mac %s --> user %s current user %s" % (msg_mac, msg_user, self.empty_string( client.user )) )
+                    logging.info( "DB: updating mac %s --> user %s with new user %s" % (msg_mac, self.empty_string( client.user ), msg_user) )
                     client.user = msg_user
                     updated = True
             else:
