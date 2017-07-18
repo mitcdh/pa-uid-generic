@@ -11,8 +11,21 @@ configured palo alto firewall
 Author: Mitchell Hewes <me@mitcdh.com>
 
 Requires:
+    python2
     peewee
     pandevice
+
+Environment Variables:
+    PA_HOSTNAME: hostname or ip of the palo alto firewall (required)
+    PA_USERNAME: username for account with at a minimum "Operational Requests" and "User-ID Agent" permitted on the Palo Alto firewall (required)
+    PA_PASSWORD: password for account (required)
+    LISTEN_HOST: ip to listen for log traffic on
+    LISTEN_PORT: port to listen for log traffic on (currently UDP only)
+    LOCAL_DOMAIN: domain to append to user when not fully qualified
+    DB_PATH: path for sqlite database
+    LOG_LEVEL: log level passed into pythons logging config
+    WORKER_TIMEOUT: base timeout if api requests to pa fail temporarily
+    UPDATE_MIN: timeout between updates of PA
 """
 import logging
 import SocketServer
