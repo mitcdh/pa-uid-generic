@@ -142,10 +142,10 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
         else:
             return user
 
-    # return a string "empty"
-    def empty_string(self, str):
+    # return a string "null" for empty str
+    def null_string(self, str):
         if not str:
-            return "empty"
+            return "null"
         else:
             return str
 
@@ -189,7 +189,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
                 msg_ip = params.group('ip')
                 logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], msg_mac, msg_ip) )
                 if msg_ip != client.ip:
-                    logging.info( "DB: updating mac %s --> ip %s with new ip %s" % (msg_mac, self.empty_string( client.ip ), msg_ip) )
+                    logging.info( "DB: updating mac %s --> ip %s with new ip %s" % (msg_mac, self.null_string( client.ip ), msg_ip) )
                     client.ip = msg_ip
                     updated = True
             elif "user" in params.groupdict():
@@ -197,7 +197,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
                 msg_user = self.qualify_user( params.group('user') )
                 logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], msg_mac, msg_user) )
                 if msg_user != client.user:
-                    logging.info( "DB: updating mac %s --> user %s with new user %s" % (msg_mac, self.empty_string( client.user ), msg_user) )
+                    logging.info( "DB: updating mac %s --> user %s with new user %s" % (msg_mac, self.null_string( client.user ), msg_user) )
                     client.user = msg_user
                     updated = True
             else:
