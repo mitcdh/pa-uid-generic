@@ -46,8 +46,8 @@ LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
 LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
 LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
 DB_PATH = os.environ.get('DB_PATH','device.db')
-WORKER_TIMEOUT = os.environ.get('WORKER_TIMEOUT','5')
-UPDATE_MIN = int(os.environ.get('UID_UPDATE','5'))
+WORKER_TIMEOUT = int(os.environ.get('WORKER_TIMEOUT','5'))
+UPDATE_MIN = int(os.environ.get('UPDATE_MIN','5'))
 
 # palo alto connection must be defined
 try:
