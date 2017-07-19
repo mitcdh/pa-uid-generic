@@ -43,24 +43,25 @@ from pandevice.base import PanDevice
 from pandevice.errors import PanDeviceError
 
 # logging configuration
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=os.environ.get("LOG_LEVEL", "INFO"))
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                    level=os.environ.get("LOG_LEVEL", "INFO"))
 
 # import our loggers and their associated regex from logger_definitions.py
 try:
     from logger_definitions import LOGGER_DEFINITIONS
 except ImportError as e:
-    logging.error( "CONFIG: failed to import LOGGER_DEFINITIONS from 'logger_definitions.py'")
+    logging.error("CONFIG: failed to import LOGGER_DEFINITIONS from 'logger_definitions.py'")
     raise
 else:
-    logging.debug( "CONFIG: imported LOGGER_DEFINITIONS from 'logger_definitions.py'")
+    logging.debug("CONFIG: imported LOGGER_DEFINITIONS from 'logger_definitions.py'")
 
 # Variables to take from os environment
-LISTEN_HOST = os.environ.get('LISTEN_HOST','0.0.0.0')
-LISTEN_PORT = int(os.environ.get('LISTEN_PORT','1514'))
-LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN','')
-DB_PATH = os.environ.get('DB_PATH','device.db')
-WORKER_TIMEOUT = int(os.environ.get('WORKER_TIMEOUT','5'))
-UPDATE_MIN = int(os.environ.get('UPDATE_MIN','5'))
+LISTEN_HOST = os.environ.get('LISTEN_HOST', '0.0.0.0')
+LISTEN_PORT = int(os.environ.get('LISTEN_PORT', '1514'))
+LOCAL_DOMAIN = os.environ.get('LOCAL_DOMAIN', '')
+DB_PATH = os.environ.get('DB_PATH', 'device.db')
+WORKER_TIMEOUT = int(os.environ.get('WORKER_TIMEOUT', '5'))
+UPDATE_MIN = int(os.environ.get('UPDATE_MIN', '5'))
 
 # palo alto connection must be defined
 try:
@@ -68,23 +69,27 @@ try:
     PA_USERNAME = os.environ['PA_USERNAME']
     PA_PASSWORD = os.environ['PA_PASSWORD']
 except KeyError as e:
-    logging.error( "CONFIG: required environment config variable %s is undefined" % (e))
+    logging.error("CONFIG: required environment config variable %s is undefined"
+                  % (e))
     raise
 else:
-    logging.debug( "CONFIG: All PA_ environment variables defined")
+    logging.debug("CONFIG: All PA_ environment variables defined")
 
 # create our database in meta
 # Would defer but OperationalError exceptions are raised in thread
 try:
     DB = SqliteQueueDatabase(DB_PATH)
-except:
-    logging.error( "DB: failed to create SqliteQueueDatabase instance for path %s" % (DB_PATH) )
+except Exception:
+    logging.error("DB: failed to create SqliteQueueDatabase instance for path %s"
+                  % (DB_PATH))
     raise
 else:
-    logging.debug( "DB: successfully created SqliteQueueDatabase instance at path %s" % (DB_PATH) )
+    logging.debug("DB: successfully created SqliteQueueDatabase instance at path %s"
+                  % (DB_PATH))
 
 # Create a queue to store ip/user pairs
 UIDQ = Queue.Queue(maxsize=0)
+
 
 # PeeWee Object Definition
 class Device(Model):
@@ -96,9 +101,10 @@ class Device(Model):
     class Meta:
         database = DB
 
+
 class PA_UID_Update_Worker(Thread):
     def __init__(self, pafw, q, timeout):
-        super(PA_UID_Update_Worker, self).__init__()
+        super(PA_UID_Update_Worker, self).__init__(name="PA_UID_Update_Worker")
         self.pafw = pafw
         self.q = q
         self.timeout = timeout
@@ -111,20 +117,26 @@ class PA_UID_Update_Worker(Thread):
                 try:
                     self.pafw.userid.login(user, ip)
                 except PanDeviceError as e:
-                    logging.error( "UID: [Queue Size: %s] pan host %s temporarily failed update with exception (%s) pausing worker for %ss" % (self.q.qsize(), PA_HOSTNAME, e, self.timeout))
+                    logging.error("UID: [Queue Size: %s] pan host %s temporarily failed update with exception (%s) pausing worker for %ss"
+                                  % (self.q.qsize(), PA_HOSTNAME, e, self.timeout))
                     self.q.put((user, ip))
                     self.q.task_done()
                     time.sleep(self.current_timeout)
                     self.current_timeout = self.current_timeout * 2
                 except Exception as e:
-                    logging.error( "UID: [Queue Size: %s] pan host %s permanently failed update for map ip %s --> user %s (%s) removed from queue" % (self.q.qsize(), PA_HOSTNAME, ip, user, e))
+                    logging.error("UID: [Queue Size: %s] pan host %s permanently failed update for map ip %s --> user %s (%s) removed from queue"
+                                  % (self.q.qsize(), PA_HOSTNAME, ip, user, e))
                     self.q.task_done()
                 else:
-                    logging.info( "UID: [Queue Size: %s] pan host %s updated with map ip %s --> user %s" % (self.q.qsize(), PA_HOSTNAME, ip, user))
+                    logging.info("UID: [Queue Size: %s] pan host %s updated with map ip %s --> user %s"
+                                 % (self.q.qsize(), PA_HOSTNAME, ip, user))
                     self.q.task_done()
                     self.current_timeout = self.timeout
             except Queue.Empty:
                 pass
+            except Exception:
+                raise
+
 
 # Customised so we can ignore from hosts we haven't defined a pattern for
 class PA_UID_UDP_Server(SocketServer.ThreadingUDPServer):
@@ -132,7 +144,8 @@ class PA_UID_UDP_Server(SocketServer.ThreadingUDPServer):
         if client_address[0] in LOGGER_DEFINITIONS:
             return True
         else:
-            logging.debug("MSG: received message from %s with no associated logger definition" % (client_address[0]) )
+            logging.debug("MSG: received message from %s with no associated logger definition"
+                          % (client_address[0]))
             return False
 
 
@@ -146,7 +159,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
 
     # ensure our mac addr is colon separated
     def normalise_mac(self, mac):
-        return mac.replace('-',':')
+        return mac.replace('-', ':')
 
     # qualify user with local_domain if there is no '@' symbol
     def qualify_user(self, user):
@@ -180,7 +193,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
     # parse an incoming message
     def parse_msg(self, msg):
         # print our full message for debug logs
-        logging.debug("MSG: logger %s supplied log '%s'" % (self.client_address[0], msg) )
+        logging.debug("MSG: logger %s supplied log '%s'" % (self.client_address[0], msg))
 
         # run a re.search() using the regex defined for our client
         params = LOGGER_DEFINITIONS[self.client_address[0]].search(msg)
@@ -190,8 +203,8 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             return False
         elif "mac" in params.groupdict():
             # get our device object
-            msg_mac = self.normalise_mac( params.group('mac') )
-            client = self.get_create_device( msg_mac )
+            msg_mac = self.normalise_mac(params.group('mac'))
+            client = self.get_create_device(msg_mac)
             updated = False
 
             # create a datetime object
@@ -200,22 +213,27 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             if "ip" in params.groupdict():
                 # set ip if it exists in our params
                 msg_ip = params.group('ip')
-                logging.info( "MAP: logger %s supplied mac %s --> ip %s" % (self.client_address[0], msg_mac, msg_ip) )
+                logging.info("MAP: logger %s supplied mac %s --> ip %s"
+                             % (self.client_address[0], msg_mac, msg_ip))
                 if msg_ip != client.ip:
-                    logging.info( "DB: updating mac %s --> ip %s with new ip %s" % (msg_mac, self.null_string( client.ip ), msg_ip) )
+                    logging.info("DB: updating mac %s --> ip %s with new ip %s"
+                                 % (msg_mac, self.null_string(client.ip), msg_ip))
                     client.ip = msg_ip
                     updated = True
             elif "user" in params.groupdict():
                 # set user if it exists in our params
-                msg_user = self.qualify_user( params.group('user') )
-                logging.info( "MAP: logger %s supplied mac %s --> user %s" % (self.client_address[0], msg_mac, msg_user) )
+                msg_user = self.qualify_user(params.group('user'))
+                logging.info("MAP: logger %s supplied mac %s --> user %s"
+                             % (self.client_address[0], msg_mac, msg_user))
                 if msg_user != client.user:
-                    logging.info( "DB: updating mac %s --> user %s with new user %s" % (msg_mac, self.null_string( client.user ), msg_user) )
+                    logging.info("DB: updating mac %s --> user %s with new user %s"
+                                 % (msg_mac, self.null_string(client.user), msg_user))
                     client.user = msg_user
                     updated = True
             else:
                 # warn if no user/ip found
-                logging.warning( "MAP: logger %s supplied mac %s but no user/ip match found" % (self.client_address[0], msg_mac) )
+                logging.warning("MAP: logger %s supplied mac %s but no user/ip match found"
+                                % (self.client_address[0], msg_mac))
 
             # get a timedelta
             td = dt - client.timestamp
@@ -230,21 +248,23 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             # save our new client
             try:
                 client.save()
-            except:
-                logging.error( "DB: exception encountered while updating db %s entry for mac %s" % (DB_PATH, msg_mac) )
+            except Exception:
+                logging.error("DB: exception encountered while updating db %s entry for mac %s"
+                              % (DB_PATH, msg_mac))
                 raise
 
         else:
             # pattern matches but no 'mac' group defined
-            logging.warning( "MAP: logger %s pattern '%s' does not define a 'mac' group" % (self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()) )
+            logging.warning("MAP: logger %s pattern '%s' does not define a 'mac' group"
+                            % (self.client_address[0], LOGGER_DEFINITIONS[self.client_address[0]].pattern()))
             return False
 
     def handle(self):
         data = bytes.decode(self.request[0].strip())
-        socket = self.request[1]
 
         # parse incoming message
         self.parse_msg(str(data))
+
 
 if __name__ == "__main__":
     try:
@@ -256,10 +276,12 @@ if __name__ == "__main__":
             PAFW = PanDevice.create_from_device(PA_HOSTNAME, PA_USERNAME, PA_PASSWORD)
             pass
         except Exception as e:
-            logging.error( "PAN: failed to connect to palo alto host %s" % (PA_HOSTNAME) )
+            logging.error("PAN: failed to connect to palo alto host %s"
+                          % (PA_HOSTNAME))
             raise
         else:
-            logging.debug( "PAN: successfully connected to palo alto host %s" % (PA_HOSTNAME) )
+            logging.debug("PAN: successfully connected to palo alto host %s"
+                          % (PA_HOSTNAME))
 
         # start our uid updater worker
         try:
@@ -267,28 +289,31 @@ if __name__ == "__main__":
             uid_worker.setDaemon(True)
             uid_worker.start()
         except Exception as e:
-            logging.error( "SYSTEM: failed to start UID Update Worker thread (%s)" % (e) )
+            logging.error("SYSTEM: failed to start UID Update Worker thread (%s)"
+                          % (e))
             raise
         else:
-            logging.debug( "SYSTEM: successfully created UID Update Worker thread")
+            logging.debug("SYSTEM: successfully created UID Update Worker thread")
 
         # start our network server
         try:
-            server = PA_UID_UDP_Server((LISTEN_HOST,LISTEN_PORT), PA_UID_UDP_Handler)
-            logging.info( "SYSTEM: starting uid message listening servers")
+            server = PA_UID_UDP_Server((LISTEN_HOST, LISTEN_PORT), PA_UID_UDP_Handler)
+            logging.info("SYSTEM: starting uid message listening servers")
             server.serve_forever(poll_interval=0.5)
         except IOError as e:
-            logging.error( "SYSTEM: IO exception encountered while starting uid server (%s) shutting down" % (e) )
+            logging.error("SYSTEM: IO exception encountered while starting uid server (%s) shutting down"
+                          % (e))
             UIDQ.join()
             DB.stop()
             raise
     except (KeyboardInterrupt, SystemExit):
-        logging.info( "SYSTEM: encountered interrupt/system exit shutting down")
+        logging.info("SYSTEM: encountered interrupt/system exit shutting down")
         server.shutdown()
         UIDQ.join()
         DB.stop()
     except Exception as e:
-        logging.info( "SYSTEM: exception encountered during operation (%s) shutting down" % (e))
+        logging.info("SYSTEM: exception encountered during operation (%s) shutting down"
+                     % (e))
         server.shutdown()
         UIDQ.join()
         DB.stop()
