@@ -193,7 +193,8 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
     # parse an incoming message
     def parse_msg(self, msg):
         # print our full message for debug logs
-        logging.debug("MSG: logger %s supplied log '%s'" % (self.client_address[0], msg))
+        logging.debug("MSG: logger %s supplied log '%s'"
+                      % (self.client_address[0], msg))
 
         # run a re.search() using the regex defined for our client
         params = LOGGER_DEFINITIONS[self.client_address[0]].search(msg)
@@ -213,8 +214,8 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             if "ip" in params.groupdict():
                 # set ip if it exists in our params
                 msg_ip = params.group('ip')
-                logging.info("MAP: logger %s supplied mac %s --> ip %s"
-                             % (self.client_address[0], msg_mac, msg_ip))
+                logging.debug("MAP: logger %s supplied mac %s --> ip %s"
+                              % (self.client_address[0], msg_mac, msg_ip))
                 if msg_ip != client.ip:
                     logging.info("DB: updating mac %s --> ip %s with new ip %s"
                                  % (msg_mac, self.null_string(client.ip), msg_ip))
@@ -223,8 +224,8 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             elif "user" in params.groupdict():
                 # set user if it exists in our params
                 msg_user = self.qualify_user(params.group('user'))
-                logging.info("MAP: logger %s supplied mac %s --> user %s"
-                             % (self.client_address[0], msg_mac, msg_user))
+                logging.debug("MAP: logger %s supplied mac %s --> user %s"
+                              % (self.client_address[0], msg_mac, msg_user))
                 if msg_user != client.user:
                     logging.info("DB: updating mac %s --> user %s with new user %s"
                                  % (msg_mac, self.null_string(client.user), msg_user))
