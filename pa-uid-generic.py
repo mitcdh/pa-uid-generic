@@ -242,9 +242,7 @@ class PA_UID_UDP_Handler(SocketServer.BaseRequestHandler):
             # now if we have both a user and ip defined update the firewall
             if self.complete_device(client) and (updated or (self.td_minutes(td) > UPDATE_MIN)):
                 UIDQ.put((client.user, client.ip))
-
-            # update timestamp of entry
-            client.timestamp = dt
+                client.timestamp = dt
 
             # save our new client
             try:
